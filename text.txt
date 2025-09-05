@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CEFR 英単語ガチャ</title>
+<style>
+  :root{
+    --bg:#0f1320; --card:#151a2c; --text:#e8ecff; --muted:#9aa3c7;
+    --A1:#9bd3ff; --A2:#73e0a9; --B1:#ffd36e; --B2:#ff9a5b; --C1:#ff6bb3; --C2:#b777ff;
+    --accent:#7aa5ff; --button:#1f2843; --buttonHover:#273154; --good:#79ffa1; --bad:#ff7a79;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:radial-gradient(1200px 600px at 70% -20%, #1c2240, #0f1320);
+    color:var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
+  }
+  header{padding:18px 16px; display:flex; gap:12px; align-items:center; justify-content:space-between; border-bottom:1px solid #222842}
+  header h1{font-size:18px; margin:0; letter-spacing:.4px;}
+  .wrap{max-width:960px; margin:0 auto; padding:20px 16px 40px;}
+  .grid{display:grid; grid-template-columns: 1fr; gap:16px}
+  @media (min-width:880px){ .grid{grid-template-columns: 1.2fr .8fr} }
+
+  .card{background:var(--card); border:1px solid #222842; border-radius:14px; padding:16px; box-shadow: 0 10px 30px rgba(0,0,0,.35)}
+  .title{font-size:16px; margin:0 0 6px}
+  .muted{color:var(--muted); font-size:13px}
+  .btns{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
+  button{
+    background:var(--button); color:var(--text); border:1px solid #2c355c; padding:10px 14px;
+    border-radius:10px; cursor:pointer; font-weight:600; letter-spacing:.2px;
+  }
+  button:hover{background:var(--buttonHover)}
+  button.primary{background:linear-gradient(180deg, #3246a3, #26357b); border:none}
+  button.danger{background:#5a2331; border:1px solid #7c2f41}
+  .pill{
+    display:inline-flex; align-items:center; gap:6px; font-weight:700; padding:6px 10px; border-radius:999px; border:1px solid #2a345c; background:#171d33; font-size:12px
+  }
+  .level{
+    font-weight:900; letter-spacing:.5px; padding:2px 8px; border-radius:7px; color:#0b1222;
+  }
+  .A1{background:var(--A1)} .A2{background:var(--A2)} .B1{background:var(--B1)}
+  .B2{background:var(--B2)} .C1{background:var(--C1)} .C2{background:var(--C2)}
+  .result{display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:12px; margin-top:14px}
+  .item{
+    background:#101631; border:1px solid #2a3157; border-radius:12px; padding:12px; position:relative; overflow:hidden
+  }
+  .word{font-size:20px; font-weight:800; margin:2px 0}
+  .pos{font-size:12px; color:#c7cbe7; font-weight:700; letter-spacing:.3px}
+  .jp{font-size:13px; color:#e9f1ff; opacity:.9}
+  .ex{font-size:12px; color:#b9c3ff; margin-top:6px}
+  .rarity{
+    position:absolute; top:8px; right:-8px; transform:rotate(12deg);
+    font-size:12px; padding:4px 12px; border-radius:8px; font-weight:900; color:#0b1222
+  }
+  .counter{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+  .bar{height:10px; background:#0f1430; border:1px solid #2b3563; border-radius:999px; overflow:hidden}
+  .bar > span{display:block; height:100%}
+  .legend{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
+  .legend span{font-size:12px}
+  .small{font-size:11px}
+  .flex{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+  input[type="file"]{display:none}
+  .filelabel{cursor:pointer; padding:8px 12px; border:1px dashed #4250a1; border-radius:10px}
+  .link{cursor:pointer; text-decoration:underline; color:#9dc2ff}
+  .space{height:6px}
+  .right{margin-left:auto}
+</style>
+</head>
+<body>
+  <header>
+    <h1>CEFR 英単語ガチャ</h1>
+    <div class="pill">所持コイン: <span id="coins">0</span></div>
+  </header>
+
+  <div class="wrap grid">
+    <!-- Left: Gacha -->
+    <section class="card">
+      <h2 class="title">ガチャを回す</h2>
+      <div class="muted">CEFRレベルが高いほどレア排出。10連は <b>B2以上1枚確定(天井)</b>。</div>
+      <div class="btns">
+        <button class="primary" id="pull1">単発 (5コイン)</button>
+        <button class="primary" id="pull10">10連 (45コイン)</button>
+        <button id="daily">デイリーボーナス +15</button>
+        <button id="resetPity">天井カウント リセット</button>
+        <button class="danger" id="resetAll">全データ初期化</button>
+      </div>
+
+      <div class="space"></div>
+
+      <div class="counter">
+        <span class="pill">天井: <span id="pity">0</span> / 9（次でB2+確定）</span>
+        <span class="pill">図鑑: <span id="owned">0</span> / <span id="total">0</span></span>
+        <span class="pill">重複は<small>★スタンプ</small>に変換</span>
+        <span class="pill">★スタンプ: <span id="dust">0</span></span>
+        <button id="dustShop" class="right">★で交換</button>
+      </div>
+
+      <div class="legend">
+        <span><span class="level A1">A1</span> 40%</span>
+        <span><span class="level A2">A2</span> 25%</span>
+        <span><span class="level B1">B1</span> 15%</span>
+        <span><span class="level B2">B2</span> 10%</span>
+        <span><span class="level C1">C1</span> 7%</span>
+        <span><span class="level C2">C2</span> 3%</span>
+      </div>
+
+      <div id="results" class="result"></div>
+    </section>
+
+    <!-- Right: Collection / Import -->
+    <aside class="card">
+      <h2 class="title">図鑑・管理</h2>
+      <div class="muted">ローカル保存（ブラウザの中）。自作単語のインポート/エクスポート可。</div>
+      <div class="btns">
+        <label class="filelabel">JSONインポート<input id="file" type="file" accept="application/json"></label>
+        <button id="export">JSONエクスポート</button>
+        <button id="addWord">単語を手入力で追加</button>
+        <button id="clearResults">画面クリア</button>
+      </div>
+
+      <div class="space"></div>
+
+      <div class="bar"><span id="progress" style="width:0%; background:linear-gradient(90deg, #6e8cff,#9c77ff)"></span></div>
+      <div class="small muted" id="progressText">0%</div>
+
+      <div class="space"></div>
+
+      <div id="collection" class="result"></div>
+    </aside>
+  </div>
+
+<script>
+/** -------------------------
+ *  初期データ（必要なら自由に増やしてOK）
+ *  head: 英単語 / pos: 品詞 / jp: 日本語 / ex: 例文 / level: CEFR
+ --------------------------*/
+const seedWords = [
+  // A1
+  {head:"apple", pos:"n.", jp:"りんご", ex:"I eat an apple every morning.", level:"A1"},
+  {head:"book", pos:"n.", jp:"本", ex:"This book is interesting.", level:"A1"},
+  {head:"learn", pos:"v.", jp:"学ぶ", ex:"I learn English at school.", level:"A1"},
+  {head:"city", pos:"n.", jp:"都市", ex:"My city is small.", level:"A1"},
+  // A2
+  {head:"afford", pos:"v.", jp:"～する余裕がある", ex:"I can't afford a new phone.", level:"A2"},
+  {head:"borrow", pos:"v.", jp:"借りる", ex:"Can I borrow your pen?", level:"A2"},
+  {head:"opinion", pos:"n.", jp:"意見", ex:"In my opinion, it's too early.", level:"A2"},
+  {head:"describe", pos:"v.", jp:"説明する", ex:"Please describe your hometown.", level:"A2"},
+  // B1
+  {head:"reliable", pos:"adj.", jp:"信頼できる", ex:"He is a reliable friend.", level:"B1"},
+  {head:"efficient", pos:"adj.", jp:"効率的な", ex:"This method is efficient.", level:"B1"},
+  {head:"influence", pos:"n./v.", jp:"影響／影響を与える", ex:"Social media can influence people.", level:"B1"},
+  {head:"determine", pos:"v.", jp:"決定する", ex:"We must determine the cause.", level:"B1"},
+  // B2
+  {head:"controversial", pos:"adj.", jp:"議論を呼ぶ", ex:"It is a controversial decision.", level:"B2"},
+  {head:"allocate", pos:"v.", jp:"割り当てる", ex:"We allocate funds to research.", level:"B2"},
+  {head:"plausible", pos:"adj.", jp:"もっともらしい", ex:"That sounds plausible.", level:"B2"},
+  {head:"interpret", pos:"v.", jp:"解釈する", ex:"How do you interpret this data?", level:"B2"},
+  // C1
+  {head:"discrepancy", pos:"n.", jp:"不一致", ex:"There is a discrepancy in the reports.", level:"C1"},
+  {head:"mitigate", pos:"v.", jp:"緩和する", ex:"We must mitigate the risks.", level:"C1"},
+  {head:"advocate", pos:"v./n.", jp:"主張する／擁護者", ex:"She advocates for equality.", level:"C1"},
+  {head:"notwithstanding", pos:"prep.", jp:"～にもかかわらず", ex:"Notwithstanding the delay, we finished.", level:"C1"},
+  // C2
+  {head:"obfuscate", pos:"v.", jp:"わかりにくくする", ex:"Jargon can obfuscate meaning.", level:"C2"},
+  {head:"perspicacious", pos:"adj.", jp:"洞察力の鋭い", ex:"A perspicacious analyst noticed it.", level:"C2"},
+  {head:"equanimity", pos:"n.", jp:"平静", ex:"She handled the crisis with equanimity.", level:"C2"},
+  {head:"antediluvian", pos:"adj.", jp:"時代遅れの", ex:"That rule feels antediluvian.", level:"C2"},
+];
+
+const RATES = [
+  {level:"A1", p:0.40},
+  {level:"A2", p:0.25},
+  {level:"B1", p:0.15},
+  {level:"B2", p:0.10},
+  {level:"C1", p:0.07},
+  {level:"C2", p:0.03},
+];
+
+const DUST_PER_DUP = 5;             // 重複変換★
+const DUST_SHOP_COST = 60;          // 任意の単語1つと交換
+const COST_SINGLE = 5;
+const COST_TEN = 45;
+const PITY_LIMIT = 9;               // 9回B2未満が続いたら次でB2+確定
+
+// --------- State (localStorage) ---------
+const LS = {
+  COINS:"gacha_coins",
+  PITY:"gacha_pity",
+  DUST:"gacha_dust",
+  OWNED:"gacha_owned", // { "apple|A1": {count:1, data:{...}} }
+  WORDS:"gacha_words"  // 全候補
+};
+
+function load(key, fallback){
+  try{ const v = JSON.parse(localStorage.getItem(key)); return v ?? fallback; }catch{ return fallback; }
+}
+function save(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+
+function initOnce(){
+  if(!localStorage.getItem(LS.WORDS)){
+    save(LS.WORDS, seedWords);
+  }
+  if(localStorage.getItem(LS.COINS)===null) save(LS.COINS, 50); // 初回お小遣い
+  if(localStorage.getItem(LS.PITY)===null) save(LS.PITY, 0);
+  if(localStorage.getItem(LS.DUST)===null) save(LS.DUST, 0);
+  if(localStorage.getItem(LS.OWNED)===null) save(LS.OWNED, {});
+}
+initOnce();
+
+// 便利アクセサ
+const getAllWords = () => load(LS.WORDS, []);
+const setAllWords = (arr) => save(LS.WORDS, arr);
+const getCoins = () => load(LS.COINS, 0);
+const setCoins = (n) => save(LS.COINS, n);
+const getPity = () => load(LS.PITY, 0);
+const setPity = (n) => save(LS.PITY, n);
+const getDust = () => load(LS.DUST, 0);
+const setDust = (n) => save(LS.DUST, n);
+const getOwned = () => load(LS.OWNED, {});
+const setOwned = (o) => save(LS.OWNED, o);
+
+// --------- Gacha core ---------
+function weightedPickLevel(forceB2Plus=false){
+  if(forceB2Plus){
+    // 正規化：B2,C1,C2のみ
+    const subset = RATES.filter(r=>["B2","C1","C2"].includes(r.level));
+    const total = subset.reduce((a,b)=>a+b.p,0);
+    let x = Math.random()*total;
+    for(const r of subset){
+      if(x < r.p) return r.level;
+      x -= r.p;
+    }
+    return subset[subset.length-1].level;
+  } else {
+    let x = Math.random();
+    for(const r of RATES){
+      if(x < r.p) return r.level;
+      x -= r.p;
+    }
+    return RATES[RATES.length-1].level;
+  }
+}
+
+function drawOne(forceB2Plus=false){
+  const words = getAllWords();
+  const lvl = weightedPickLevel(forceB2Plus);
+  const pool = words.filter(w=>w.level===lvl);
+  if(pool.length===0){
+    // もし該当レベルが空なら他レベルからランダム
+    const alt = words[Math.floor(Math.random()*words.length)];
+    return { word:alt, level:alt.level, forced:false };
+  }
+  const w = pool[Math.floor(Math.random()*pool.length)];
+  return { word:w, level:lvl, forced:forceB2Plus };
+}
+
+function registerPull(res){
+  const key = `${res.word.head}|${res.word.level}`;
+  const owned = getOwned();
+  if(owned[key]){
+    owned[key].count += 1;
+    setOwned(owned);
+    setDust(getDust()+DUST_PER_DUP);
+    return {duplicate:true, count:owned[key].count};
+  } else {
+    owned[key] = {count:1, data:res.word};
+    setOwned(owned);
+    return {duplicate:false, count:1};
+  }
+}
+
+function performPull(n){
+  const results = [];
+  let pity = getPity();
+  for(let i=0;i<n;i++){
+    const force = (pity>=PITY_LIMIT);
+    const r = drawOne(force);
+    const reg = registerPull(r);
+    results.push({...r, ...reg});
+    // pity更新
+    if(["B2","C1","C2"].includes(r.level)){
+      pity = 0;
+    } else {
+      pity += 1;
+    }
+  }
+  setPity(pity);
+  return results;
+}
+
+// --------- UI helpers ---------
+function levelColor(level){ return level }
+function el(tag, attrs={}, children=[]){
+  const e = document.createElement(tag);
+  Object.entries(attrs).forEach(([k,v])=>{
+    if(k==="class") e.className=v;
+    else if(k==="html") e.innerHTML=v;
+    else e.setAttribute(k,v);
+  });
+  (Array.isArray(children)?children:[children]).forEach(c=>{
+    if(typeof c==="string") e.appendChild(document.createTextNode(c));
+    else if(c) e.appendChild(c);
+  });
+  return e;
+}
+
+function renderResults(arr){
+  const wrap = document.getElementById("results");
+  wrap.innerHTML = "";
+  arr.forEach(r=>{
+    const it = el("div",{class:"item"});
+    const rare = el("div",{class:`rarity level ${levelColor(r.level)}`}, r.level);
+    const head = el("div",{class:"word"}, r.word.head);
+    const pos = el("div",{class:"pos"}, r.word.pos);
+    const jp = el("div",{class:"jp"}, r.word.jp);
+    const ex = el("div",{class:"ex"}, "e.g. "+r.word.ex);
+    const dup = r.duplicate ? el("div",{class:"small", style:"color:var(--bad); font-weight:700; margin-top:6px"}, `重複 → ★${DUST_PER_DUP} 獲得（合計★${getDust()}）`) : null;
+    it.append(rare, head, pos, jp, ex);
+    if(dup) it.append(dup);
+    wrap.appendChild(it);
+  });
+}
+
+function renderCollection(){
+  const list = document.getElementById("collection");
+  list.innerHTML = "";
+  const owned = getOwned();
+  const entries = Object.values(owned).map(v=>v.data);
+  const byLevel = ["C2","C1","B2","B1","A2","A1"]; // 上位から見やすく
+  const sorted = entries.sort((a,b)=>{
+    const lv = x=>byLevel.indexOf(x.level);
+    if(lv(a)<0||lv(b)<0) return a.head.localeCompare(b.head);
+    if(lv(a)!==lv(b)) return lv(a)-lv(b);
+    return a.head.localeCompare(b.head);
+  });
+  sorted.forEach(w=>{
+    const it = el("div",{class:"item"});
+    const rare = el("div",{class:`rarity level ${levelColor(w.level)}`}, w.level);
+    const head = el("div",{class:"word"}, w.head);
+    const pos = el("div",{class:"pos"}, w.pos);
+    const jp = el("div",{class:"jp"}, w.jp);
+    const ex = el("div",{class:"ex"}, "e.g. "+w.ex);
+    it.append(rare, head, pos, jp, ex);
+    list.appendChild(it);
+  });
+
+  // 図鑑進捗
+  const total = getAllWords().length;
+  const own = Object.keys(owned).length;
+  document.getElementById("owned").textContent = own;
+  document.getElementById("total").textContent = total;
+  const pct = total? Math.round(own/total*100):0;
+  document.getElementById("progress").style.width = pct+"%";
+  document.getElementById("progressText").textContent = pct+"%";
+}
+
+function refreshHeader(){
+  document.getElementById("coins").textContent = getCoins();
+  document.getElementById("pity").textContent = getPity();
+  document.getElementById("dust").textContent = getDust();
+}
+
+function toast(msg){
+  alert(msg); // シンプル実装（必要なら後でトーストUIに変更可）
+}
+
+// --------- Actions ---------
+document.getElementById("pull1").addEventListener("click", ()=>{
+  if(getCoins() < COST_SINGLE){ toast("コインが足りません。デイリーボーナスを受け取ろう！"); return; }
+  setCoins(getCoins()-COST_SINGLE);
+  const res = performPull(1);
+  renderResults(res);
+  refreshHeader();
+  renderCollection();
+});
+
+document.getElementById("pull10").addEventListener("click", ()=>{
+  if(getCoins() < COST_TEN){ toast("コインが足りません。デイリーボーナスを受け取ろう！"); return; }
+  setCoins(getCoins()-COST_TEN);
+  const pityStart = getPity();
+  let res = performPull(10);
+  // 仕様上すでに天井が効くが、10連は最低1枚B2+保証も二重で担保：
+  if(!res.some(x=>["B2","C1","C2"].includes(x.level))){
+    // 最後の1枚をB2+に差し替え
+    const forced = drawOne(true);
+    const reg = registerPull(forced);
+    res[res.length-1] = {...forced, ...reg};
+    setPity(0);
+  }
+  renderResults(res);
+  refreshHeader();
+  renderCollection();
+});
+
+document.getElementById("daily").addEventListener("click", ()=>{
+  // 一日一回にしたければ日付チェックを追加可能。ここでは簡易版。
+  setCoins(getCoins()+15);
+  refreshHeader();
+  toast("デイリーボーナス +15コイン！");
+});
+
+document.getElementById("resetPity").addEventListener("click", ()=>{
+  setPity(0); refreshHeader(); toast("天井カウントをリセットしました。");
+});
+
+document.getElementById("resetAll").addEventListener("click", ()=>{
+  if(confirm("本当に全データを初期化しますか？（図鑑/コイン/★含む）")){
+    localStorage.removeItem(LS.COINS);
+    localStorage.removeItem(LS.PITY);
+    localStorage.removeItem(LS.DUST);
+    localStorage.removeItem(LS.OWNED);
+    localStorage.removeItem(LS.WORDS);
+    initOnce();
+    document.getElementById("results").innerHTML="";
+    renderCollection(); refreshHeader();
+    toast("初期化しました。");
+  }
+});
+
+document.getElementById("clearResults").addEventListener("click", ()=>{
+  document.getElementById("results").innerHTML="";
+});
+
+document.getElementById("export").addEventListener("click", ()=>{
+  const data = {
+    words:getAllWords(),
+    owned:getOwned(),
+    coins:getCoins(), pity:getPity(), dust:getDust()
+  };
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "cefr_gacha_save.json";
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url); a.remove();}, 0);
+});
+
+document.getElementById("file").addEventListener("change", (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const obj = JSON.parse(reader.result);
+      if(obj.words) setAllWords(obj.words);
+      if(obj.owned) setOwned(obj.owned);
+      if(typeof obj.coins==="number") setCoins(obj.coins);
+      if(typeof obj.pity==="number") setPity(obj.pity);
+      if(typeof obj.dust==="number") setDust(obj.dust);
+      renderCollection(); refreshHeader();
+      toast("インポートしました。");
+    }catch(err){ toast("JSONの読み込みに失敗しました。"); }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+document.getElementById("addWord").addEventListener("click", ()=>{
+  const head = prompt("英単語（headword）");
+  if(!head) return;
+  const pos = prompt("品詞 (例: n., v., adj.)") || "n.";
+  const jp = prompt("日本語訳") || "";
+  const ex = prompt("例文") || "";
+  const level = prompt("CEFR レベル（A1/A2/B1/B2/C1/C2）", "B1");
+  if(!["A1","A2","B1","B2","C1","C2"].includes(level)){ alert("レベルが不正です。"); return; }
+  const all = getAllWords();
+  all.push({head, pos, jp, ex, level});
+  setAllWords(all);
+  renderCollection();
+  toast("単語を追加しました！");
+});
+
+document.getElementById("dustShop").addEventListener("click", ()=>{
+  if(getDust() < DUST_SHOP_COST){ toast(`★が足りません（必要:${DUST_SHOP_COST}）`); return; }
+  const level = prompt("交換したいレベル（B2/C1/C2 推奨）", "B2");
+  if(!["A1","A2","B1","B2","C1","C2"].includes(level)){ alert("レベルが不正です。"); return; }
+  const pool = getAllWords().filter(w=>w.level===level);
+  if(pool.length===0){ toast("そのレベルに単語がありません。"); return; }
+  const w = pool[Math.floor(Math.random()*pool.length)];
+  const res = {word:w, level:w.level};
+  const reg = registerPull(res);
+  setDust(getDust()-DUST_SHOP_COST);
+  renderResults([{...res, ...reg, forced:false}]);
+  refreshHeader(); renderCollection();
+  toast(`レベル${level}の単語を交換しました！`);
+});
+
+// 初回描画
+renderCollection(); refreshHeader();
+
+</script>
+</body>
+</html>
